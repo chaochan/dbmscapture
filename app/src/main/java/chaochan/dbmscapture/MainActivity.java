@@ -5,7 +5,6 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -38,7 +37,7 @@ import java.util.List;
 import butterknife.ButterKnife;
 import butterknife.BindView;
 import butterknife.OnClick;
-import chaochan.dbmscapture.model.ImageAnalyzer;
+import chaochan.dbmscapture.model.SSAnalyzer;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -47,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
     @BindView(R.id.image_name) ImageView mImageName;
     @BindView(R.id.image_sire_line) ImageView mImageSireLine;
-    private ImageAnalyzer.AnalyzedImage mAnalyzedImage;
+    private SSAnalyzer.AnalyzedImage mAnalyzedImage;
 
 
     @Override
@@ -123,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == GALLERY_IMAGE_REQUEST && resultCode == RESULT_OK && data != null) {
-            ImageAnalyzer.AnalyzedImage image = ImageAnalyzer.analyzeScreenShot(this, data.getData());
+            SSAnalyzer.AnalyzedImage image = SSAnalyzer.analyzeScreenShot(this, data.getData());
             mImageName.setImageBitmap(image.nameArea);
             mImageSireLine.setImageBitmap(image.sireLineArea);
             mAnalyzedImage = image;
