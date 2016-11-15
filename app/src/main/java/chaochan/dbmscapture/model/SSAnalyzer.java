@@ -195,7 +195,7 @@ public class SSAnalyzer {
         if (h >= 72 && h <= 80) {
             return "晩成";
         }
-        if (h >= 176 && h <= 184) {
+        if (h >= 236 && h <= 244) {
             return "堅実";
         }
         if (h >= 297 && h <= 303) {
