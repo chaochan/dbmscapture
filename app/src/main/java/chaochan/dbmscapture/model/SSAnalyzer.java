@@ -18,7 +18,92 @@ import chaochan.dbmscapture.model.database.Stallion;
 /**
  * スクリーンショット解析
  */
-public class SSAnalyzer {
+public abstract class SSAnalyzer {
+
+    private enum ImageType {
+        Unknown(false),                 // 解析不能
+        StallionAbility(true),          // 種牡馬：能力
+        StallionAncestor(true),         // 種牡馬：因子
+        StallionParentLine(true),       // 種牡馬：親系統
+        StallionChildLine(true),        // 種牡馬：子系統
+        BroodmareAncestor(false),       // 繁殖牝馬：因子
+        BroodmareParentLine(false),     // 繁殖牝馬：親系統
+        BroodmareChildLine(false);      // 繁殖牝馬：子系統
+
+        private boolean mStallion;
+
+        private ImageType(boolean isStallion) {
+            mStallion = isStallion;
+        }
+
+        public boolean isStallion() {
+            return mStallion;
+        }
+
+        public static ImageType fromScreenShot(Bitmap screenShot) {
+            // 種牡馬判定
+            float h1 = colorToHSV(screenShot.getPixel(600, 250))[0];
+            float h2 = colorToHSV(screenShot.getPixel(830, 545))[0];
+            if (h1 >= 23 && h1 <= 31 && h2 <= 4) {
+                return stallionType(screenShot);
+            }
+
+            // 繁殖牝馬判定
+            h1 = colorToHSV(screenShot.getPixel(555, 300))[0];
+            if (h1 >= 112 && h1 <= 120 && h2 >= 50 && h2 <= 64) {
+                return broodmareType(screenShot);
+            }
+
+            return Unknown;
+        }
+
+        private static ImageType stallionType(Bitmap screenShot) {
+            // 能力タブ？
+            if (isStallionTabActive(screenShot, 190, 560)) {
+                return StallionAbility;
+            }
+            // 因子タブ？
+            if (isStallionTabActive(screenShot, 360, 560)) {
+                return StallionAncestor;
+            }
+            // 親系統タブ？
+            if (isStallionTabActive(screenShot, 530, 560)) {
+                return StallionParentLine;
+            }
+            // 子系統タブ？
+            if (isStallionTabActive(screenShot, 700, 560)) {
+                return StallionChildLine;
+            }
+            return Unknown;
+        }
+
+        private static boolean isStallionTabActive(Bitmap screenShot, int x, int y) {
+            float[] hsv = colorToHSV(screenShot.getPixel(x, y));
+            return (hsv[0] >= 196 && hsv[0] <= 204);
+        }
+
+        private static ImageType broodmareType(Bitmap screenShot) {
+            // 因子タブ？
+            if (isBroodmareTabActive(screenShot, 950, 1190)) {
+                return BroodmareAncestor;
+            }
+            // 親系統タブ？
+            if (isBroodmareTabActive(screenShot, 950, 1267)) {
+                return BroodmareParentLine;
+            }
+            // 子系統タブ？
+            if (isBroodmareTabActive(screenShot, 950, 1342)) {
+                return BroodmareChildLine;
+            }
+            return Unknown;
+        }
+
+        private static boolean isBroodmareTabActive(Bitmap screenShot, int x, int y) {
+            float[] hsv = colorToHSV(screenShot.getPixel(x, y));
+            return (hsv[0] >= 18 && hsv[0] <= 26);
+        }
+    }
+
 
     public static interface OnAnalyzedListener {
         public void onAnalyzed(Stallion stallion, Ancestor[] sireLine);
@@ -79,7 +164,10 @@ public class SSAnalyzer {
         AnalyzedImage image = new AnalyzedImage();
         image.nameArea = clipNameArea(screenShot, nameRect);
         image.sireLineArea = clipSireLineArea(screenShot, sireLineRect);
-        toAbilityList(screenShot, sireLineRect);
+        createAbilityList(screenShot, sireLineRect);
+
+        ImageType type = ImageType.fromScreenShot(screenShot);
+
         return image;
     }
 
@@ -135,7 +223,7 @@ public class SSAnalyzer {
      * @param sireLineRect
      * @return
      */
-    private static Ability[] toAbilityList(Bitmap screenShot, Rect sireLineRect) {
+    private static Ability[] createAbilityList(Bitmap screenShot, Rect sireLineRect) {
         final int ability1X = 560 + sireLineRect.left;
         final int ability2X = 670 + sireLineRect.left;
 
@@ -145,13 +233,12 @@ public class SSAnalyzer {
         for (int i = 0; i < list.length; i++) {
             Ability ability = new Ability();
             // 指定ピクセルの色から能力を取得する
-            //android.util.Log.d("debug", String.format("x=%d, y=%d", ability1X, offsetY));
             ability.ability1 = colorToAbility(screenShot.getPixel(ability1X, offsetY));
-            //android.util.Log.d("debug", String.format("x=%d, y=%d", ability1X, offsetY));
-            ability.ability2 = colorToAbility(screenShot.getPixel(ability2X, offsetY));
-            android.util.Log.d("debug", String.format("%s, %s", ability.ability1, ability.ability2));
-
-
+            if (ability.ability1 == null) {
+                ability.ability1 = colorToAbility(screenShot.getPixel(ability2X, offsetY));
+            } else {
+                ability.ability2 = colorToAbility(screenShot.getPixel(ability2X, offsetY));
+            }
             list[i] = ability;
             offsetY += lineWidth;
         }
@@ -163,8 +250,7 @@ public class SSAnalyzer {
      * 色 → 能力変換
      */
     private static String colorToAbility(int color) {
-        float[] hsv = new float[3];
-        Color.colorToHSV(color, hsv);
+        float[] hsv = colorToHSV(color);
 
         float h = hsv[0];
         float s = hsv[1];
@@ -205,6 +291,15 @@ public class SSAnalyzer {
         return null;
     }
 
+
+    /**
+     * Color値→HSV変換
+     */
+    private static float[] colorToHSV(int color) {
+        float[] hsv = new float[3];
+        Color.colorToHSV(color, hsv);
+        return hsv;
+    }
 
     /**
      * Bitmapを指定された矩形で切り抜き、新しいBitmapとして返す
